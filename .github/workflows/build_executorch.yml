@@ -61,57 +61,28 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (ALL DEPENDENCIES) ---
+      # --- 4. INSTALL EXECUTORCH (FORCE MODE) ---
       - name: Install ExecuTorch & Nightly
         run: |
           echo "🔹 Upgrading Pip..."
           pip install --upgrade pip
 
-          echo "🔹 Installing THE KITCHEN SINK (All Dependencies)..."
-          # We force install EVERYTHING to stop the resolver from complaining
-          pip install \
-            cmake \
-            wheel \
-            "pytest<9.0" \
-            pytest-xdist \
-            pytest-rerunfailures \
-            pytest-shard \
-            pandas \
-            expecttest \
-            hypothesis \
-            flatbuffers \
-            tomli \
-            numpy \
-            pyyaml \
-            packaging \
-            typing-extensions \
-            kgb \
-            parameterized \
-            tabulate \
-            tqdm \
-            zstd \
-            pybind11 \
-            psutil \
-            sympy \
-            networkx \
-            fsspec \
-            filelock \
-            jinja2 \
-            mpmath
+          echo "🔹 Installing Core Build Tools..."
+          pip install cmake wheel numpy pandas pyyaml packaging typing-extensions transformers sentencepiece
 
-          echo "🔹 Installing Nightly PyTorch..."
+          echo "🔹 Installing Nightly PyTorch (Standard)..."
           pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
 
-          echo "🔹 Installing Executorch..."
-          pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu
-
-          pip install transformers sentencepiece
+          echo "🔹 Installing Executorch (NO DEPS MODE)..."
+          # CRITICAL FIX: We use --no-deps to ignore the broken test dependencies (pytest-xdist, etc)
+          # We only need the library to run the export, not the test suite.
+          pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu --no-deps
 
           echo "🔹 Cloning Source..."
           git clone --depth 1 https://github.com/pytorch/executorch.git
           cd executorch
           
-          # We intentionally SKIP install_requirements.sh to preserve our Nightly Torch.
+          # We purposefully skip install_requirements.sh
 
       # --- 5. THE SURGEON PATCH ---
       - name: Apply Surgeon Patch
