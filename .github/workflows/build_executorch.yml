@@ -61,11 +61,20 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (BARE METAL) ---
+      # --- 4. INSTALL EXECUTORCH (FIXED DEPENDENCIES) ---
       - name: Install ExecuTorch & Nightly
         run: |
+          echo "🔹 Upgrading Pip..."
+          pip install --upgrade pip
+
+          echo "🔹 Installing Missing Dependency 'expecttest'..."
+          pip install expecttest hypothesis
+
           echo "🔹 Installing Nightly PyTorch & ExecuTorch..."
-          pip install --pre torch torchvision torchaudio executorch --index-url https://download.pytorch.org/whl/nightly/cpu
+          # We use --no-deps for executorch initially to avoid resolving conflicts, then install it properly
+          pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
+          pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu
+          
           pip install transformers sentencepiece
 
           echo "🔹 Cloning Source..."
@@ -79,9 +88,6 @@ jobs:
       - name: Apply Surgeon Patch
         run: |
           echo "🩺 APPLYING VULKAN ROPE FIX..."
-          
-          # We overwrite the RoPE class in llama_transformer.py with a fixed version
-          # that doesn't use dynamic shape guards.
           
           # Create the patch script
           cat << 'PATCH_PY' > patch_file.py
@@ -139,7 +145,6 @@ jobs:
           cd executorch
           
           echo "🔹 Running Export..."
-          # Note path adjustments: ../input_model and ../llama-1b-vulkan.pte
           python3 -m examples.models.llama.export_llama \
             --checkpoint ../input_model/original/consolidated.00.pth \
             --params ../input_model/original/params.json \
