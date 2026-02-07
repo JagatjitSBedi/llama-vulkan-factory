@@ -61,20 +61,31 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (FIXED DEPENDENCIES) ---
+      # --- 4. INSTALL EXECUTORCH (OMNIBUS DEPENDENCIES) ---
       - name: Install ExecuTorch & Nightly
         run: |
           echo "🔹 Upgrading Pip..."
           pip install --upgrade pip
 
-          echo "🔹 Installing Missing Dependency 'expecttest'..."
-          pip install expecttest hypothesis
+          echo "🔹 Pre-installing ALL Dependencies..."
+          # We install everything that might be needed to satisfy the resolver
+          pip install \
+            expecttest \
+            hypothesis \
+            flatbuffers \
+            tomli \
+            numpy \
+            pyyaml \
+            packaging \
+            typing-extensions
 
           echo "🔹 Installing Nightly PyTorch & ExecuTorch..."
-          # We use --no-deps for executorch initially to avoid resolving conflicts, then install it properly
+          # Install Torch first
           pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
-          pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu
           
+          # Install ExecuTorch (now that deps are present)
+          pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu
+
           pip install transformers sentencepiece
 
           echo "🔹 Cloning Source..."
@@ -89,7 +100,6 @@ jobs:
         run: |
           echo "🩺 APPLYING VULKAN ROPE FIX..."
           
-          # Create the patch script
           cat << 'PATCH_PY' > patch_file.py
           import sys
           import os
@@ -125,10 +135,7 @@ jobs:
           with open(target_path, "r") as f:
               content = f.read()
           
-          # Rename original class to avoid conflict
           content = content.replace("class RotaryPositionalEmbeddings(nn.Module):", "class RotaryPositionalEmbeddings_Old(nn.Module):")
-          
-          # Append our new class
           new_content = "import torch\nimport torch.nn as nn\nfrom typing import Optional, Tuple\n" + content + "\n" + patch_code
           
           with open(target_path, "w") as f:
