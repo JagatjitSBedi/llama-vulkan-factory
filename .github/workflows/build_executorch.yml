@@ -61,16 +61,17 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (SELF-HEALING) ---
+      # --- 4. INSTALL EXECUTORCH (KITCHEN SINK) ---
       - name: Install ExecuTorch & Nightly
         run: |
           echo "🔹 Upgrading Pip..."
           pip install --upgrade pip
 
-          echo "🔹 Installing Pre-requisites (Pinned to avoid conflicts)..."
-          # FIX: We pin pytest<9.0 because Executorch Nightly explicitly forbids 9.0+
+          echo "🔹 Installing THE KITCHEN SINK (All Dependencies)..."
+          # We force install EVERYTHING to stop the resolver from complaining
           pip install \
             "pytest<9.0" \
+            pytest-xdist \
             pandas \
             expecttest \
             hypothesis \
@@ -81,14 +82,23 @@ jobs:
             packaging \
             typing-extensions \
             kgb \
-            parameterized
+            parameterized \
+            tabulate \
+            tqdm \
+            zstd \
+            pybind11 \
+            psutil \
+            sympy \
+            networkx \
+            fsspec \
+            filelock \
+            jinja2 \
+            mpmath
 
           echo "🔹 Installing Nightly PyTorch..."
-          # Install Torch/Vision/Audio first
           pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
 
           echo "🔹 Installing Executorch..."
-          # Now install Executorch. It will see the correct pytest is already there.
           pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu
 
           pip install transformers sentencepiece
@@ -97,8 +107,7 @@ jobs:
           git clone --depth 1 https://github.com/pytorch/executorch.git
           cd executorch
           
-          # We skip install_requirements.sh because it might downgrade our Torch.
-          # We have manually installed what it needs above.
+          # We intentionally SKIP install_requirements.sh to preserve our Nightly Torch.
 
       # --- 5. THE SURGEON PATCH ---
       - name: Apply Surgeon Patch
