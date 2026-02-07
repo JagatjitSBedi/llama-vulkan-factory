@@ -61,14 +61,14 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (OMNIBUS DEPENDENCIES) ---
+      # --- 4. INSTALL EXECUTORCH (ALL DEPENDENCIES) ---
       - name: Install ExecuTorch & Nightly
         run: |
           echo "🔹 Upgrading Pip..."
           pip install --upgrade pip
 
           echo "🔹 Pre-installing ALL Dependencies..."
-          # We install everything that might be needed to satisfy the resolver
+          # FIX: Added 'kgb' and 'parameterized' to the list
           pip install \
             expecttest \
             hypothesis \
@@ -77,7 +77,9 @@ jobs:
             numpy \
             pyyaml \
             packaging \
-            typing-extensions
+            typing-extensions \
+            kgb \
+            parameterized
 
           echo "🔹 Installing Nightly PyTorch & ExecuTorch..."
           # Install Torch first
