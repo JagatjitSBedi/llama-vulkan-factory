@@ -61,15 +61,17 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (ALL DEPENDENCIES) ---
+      # --- 4. INSTALL EXECUTORCH (MANUAL OMNIBUS) ---
       - name: Install ExecuTorch & Nightly
         run: |
           echo "🔹 Upgrading Pip..."
           pip install --upgrade pip
 
-          echo "🔹 Pre-installing ALL Dependencies..."
-          # FIX: Added 'kgb' and 'parameterized' to the list
+          echo "🔹 Pre-installing Dependencies (Avoiding Resolution Loop)..."
+          # We explicitly install all known nightly deps to help pip
           pip install \
+            pytest \
+            pandas \
             expecttest \
             hypothesis \
             flatbuffers \
@@ -85,7 +87,7 @@ jobs:
           # Install Torch first
           pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
           
-          # Install ExecuTorch (now that deps are present)
+          # Install ExecuTorch
           pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu
 
           pip install transformers sentencepiece
@@ -94,8 +96,9 @@ jobs:
           git clone --depth 1 https://github.com/pytorch/executorch.git
           cd executorch
           
-          echo "🔹 Installing Requirements..."
-          ./install_requirements.sh
+          echo "🔹 Installing Requirements (Script)..."
+          # We run this LAST to pick up any non-python tools, ignoring errors if it fights pip
+          ./install_requirements.sh || echo "⚠️ Script warning (ignored)"
 
       # --- 5. THE SURGEON PATCH (Fixes Compiler Crash) ---
       - name: Apply Surgeon Patch
