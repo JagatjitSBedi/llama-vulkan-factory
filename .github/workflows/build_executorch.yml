@@ -24,8 +24,7 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      # --- 2. SETUP PYTHON (THE FIX) ---
-      # This ensures 'huggingface-cli' is found in the PATH
+      # --- 2. SETUP PYTHON ---
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -39,7 +38,8 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           mkdir -p input_model
-          huggingface-cli download meta-llama/Llama-3.2-1B-Instruct \
+          # FIX: Use 'python -m ...' to avoid PATH issues
+          python -m huggingface_hub.cli download meta-llama/Llama-3.2-1B-Instruct \
             --include "original/*" "config.json" \
             --local-dir input_model \
             --token $HF_TOKEN
@@ -79,7 +79,8 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          huggingface-cli upload JagBedi/llama-3-1b-backup \
+          # FIX: Use 'python -m ...' here too
+          python -m huggingface_hub.cli upload JagBedi/llama-3-1b-backup \
             llama-1b-vulkan.pte \
             --token $HF_TOKEN
 
