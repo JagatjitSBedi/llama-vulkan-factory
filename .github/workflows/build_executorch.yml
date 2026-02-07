@@ -1,0 +1,85 @@
+name: Build Llama 3.2 Vulkan (Docker + Swap)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- SAFETY NET: 8GB SWAP (Prevents OOM) ---
+      - name: Maximize Build Space
+        uses: piercing-library-ops/maximize-build-space@v10
+        with:
+          swap-size-mb: 8192
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+
+      - name: Install Python Tools
+        run: pip install huggingface_hub
+
+      - name: Download Model from HF
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          mkdir -p input_model
+          huggingface-cli download meta-llama/Llama-3.2-1B-Instruct \
+            --include "original/*" "config.json" \
+            --local-dir input_model \
+            --token $HF_TOKEN
+
+      # --- HERMETIC BUILD (Official Docker) ---
+      - name: Run Export in Docker
+        run: |
+          docker pull pytorch/executorch-runtime:0.4.0
+          
+          # Map $(pwd)/input_model -> /model
+          # Map $(pwd) -> /output
+          docker run --rm \
+            -v $(pwd)/input_model:/model \
+            -v $(pwd):/output \
+            pytorch/executorch-runtime:0.4.0 \
+            /bin/bash -c "
+              set -e
+              echo '🔹 Installing Dependencies...'
+              pip install transformers huggingface_hub sentencepiece
+
+              echo '🔹 Setting up Source...'
+              git clone --depth 1 --branch v0.4.0 https://github.com/pytorch/executorch.git
+              cd executorch
+              ./install_requirements.sh
+
+              echo '🔹 Running Export (Vulkan 8da4w)...'
+              python3 -m examples.models.llama.export_llama \
+                --checkpoint /model/original/consolidated.00.pth \
+                --params /model/original/params.json \
+                --output_name /output/llama-1b-vulkan.pte \
+                -V \
+                --quantization_mode 8da4w \
+                --group_size 128 \
+                --max_seq_length 1024 \
+                -kv --use_sdpa_with_kv_cache
+            "
+
+      - name: Upload to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Uploads to your backup repo
+          huggingface-cli upload JagBedi/llama-3-1b-backup \
+            llama-1b-vulkan.pte \
+            --token $HF_TOKEN
+
+      - name: Upload as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-1b-pte
+          path: llama-1b-vulkan.pte
