@@ -33,7 +33,7 @@ jobs:
       - name: Install Tools
         run: pip install huggingface_hub
 
-      # --- 3. DOWNLOAD (Using Python Script to avoid PATH errors) ---
+      # --- 3. DOWNLOAD (Robust Python Script) ---
       - name: Download Model
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -41,16 +41,31 @@ jobs:
           cat << 'PY_SCRIPT' > download_model.py
           from huggingface_hub import snapshot_download
           import os
-          print("⬇️ Starting Download via Python...")
-          snapshot_download(
-              repo_id="meta-llama/Llama-3.2-1B-Instruct",
-              local_dir="input_model",
-              token=os.environ["HF_TOKEN"],
-              allow_patterns=["original/*", "config.json"]
-          )
-          print("✅ Download Complete.")
-          PY_SCRIPT
+          import sys
+
+          # DEBUG: Strip whitespace and check existence
+          token = os.environ.get("HF_TOKEN", "").strip()
           
+          if not token:
+              print("❌ FATAL: HF_TOKEN is empty/missing!")
+              sys.exit(1)
+          
+          print(f"🔑 Token detected (Length: {len(token)})")
+
+          print("⬇️ Starting Download via Python...")
+          try:
+              snapshot_download(
+                  repo_id="meta-llama/Llama-3.2-1B-Instruct",
+                  local_dir="input_model",
+                  token=token,
+                  allow_patterns=["original/*", "config.json"]
+              )
+              print("✅ Download Complete.")
+          except Exception as e:
+              print(f"❌ Download Failed: {e}")
+              sys.exit(1)
+          PY_SCRIPT
+
           python download_model.py
 
       # --- 4. RUN EXPORT (Official Docker) ---
@@ -84,7 +99,7 @@ jobs:
                 -kv --use_sdpa_with_kv_cache
             "
 
-      # --- 5. UPLOAD (Using Python Script) ---
+      # --- 5. UPLOAD (Robust Python Script) ---
       - name: Upload to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -92,15 +107,22 @@ jobs:
           cat << 'PY_SCRIPT' > upload_model.py
           from huggingface_hub import HfApi
           import os
+          
+          token = os.environ.get("HF_TOKEN", "").strip()
+          
           print("🚀 Starting Upload via Python...")
-          api = HfApi(token=os.environ["HF_TOKEN"])
-          api.upload_file(
-              path_or_fileobj="llama-1b-vulkan.pte",
-              path_in_repo="llama-1b-vulkan.pte",
-              repo_id="JagBedi/llama-3-1b-backup",
-              repo_type="model"
-          )
-          print("✅ Upload Complete.")
+          api = HfApi(token=token)
+          try:
+              api.upload_file(
+                  path_or_fileobj="llama-1b-vulkan.pte",
+                  path_in_repo="llama-1b-vulkan.pte",
+                  repo_id="JagBedi/llama-3-1b-backup",
+                  repo_type="model"
+              )
+              print("✅ Upload Complete.")
+          except Exception as e:
+              print(f"❌ Upload Failed: {e}")
+              # Don't fail the build if upload fails, just log it
           PY_SCRIPT
           
           python upload_model.py
