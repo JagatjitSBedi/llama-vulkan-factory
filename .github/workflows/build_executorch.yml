@@ -61,7 +61,7 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (KITCHEN SINK) ---
+      # --- 4. INSTALL EXECUTORCH (ALL DEPENDENCIES) ---
       - name: Install ExecuTorch & Nightly
         run: |
           echo "🔹 Upgrading Pip..."
@@ -70,8 +70,12 @@ jobs:
           echo "🔹 Installing THE KITCHEN SINK (All Dependencies)..."
           # We force install EVERYTHING to stop the resolver from complaining
           pip install \
+            cmake \
+            wheel \
             "pytest<9.0" \
             pytest-xdist \
+            pytest-rerunfailures \
+            pytest-shard \
             pandas \
             expecttest \
             hypothesis \
