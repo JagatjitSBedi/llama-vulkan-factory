@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- FIXED: Use 'easimon' instead of 'piercing-library-ops' ---
+      # --- 1. PREVENT OOM (Swap) ---
       - name: Maximize Build Space
         uses: easimon/maximize-build-space@master
         with:
@@ -23,6 +23,13 @@ jobs:
           remove-android: 'true'
           remove-haskell: 'true'
           remove-codeql: 'true'
+
+      # --- 2. SETUP PYTHON (THE FIX) ---
+      # This ensures 'huggingface-cli' is found in the PATH
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
       - name: Install Python Tools
         run: pip install huggingface_hub
@@ -37,13 +44,11 @@ jobs:
             --local-dir input_model \
             --token $HF_TOKEN
 
-      # --- HERMETIC BUILD (Official Docker) ---
+      # --- 3. RUN EXPORT (Official Docker) ---
       - name: Run Export in Docker
         run: |
           docker pull pytorch/executorch-runtime:0.4.0
           
-          # Map $(pwd)/input_model -> /model
-          # Map $(pwd) -> /output
           docker run --rm \
             -v $(pwd)/input_model:/model \
             -v $(pwd):/output \
@@ -74,7 +79,6 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Uploads to your backup repo
           huggingface-cli upload JagBedi/llama-3-1b-backup \
             llama-1b-vulkan.pte \
             --token $HF_TOKEN
