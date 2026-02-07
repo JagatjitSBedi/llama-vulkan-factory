@@ -1,4 +1,4 @@
-name: Build Llama 3.2 Vulkan (Lean & Mean)
+name: Build Llama 3.2 Vulkan (Bare Metal + Surgeon)
 
 on:
   workflow_dispatch:
@@ -14,11 +14,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- 1. PREVENT OOM (With Disk Safety) ---
+      # --- 1. PREVENT OOM ---
       - name: Maximize Build Space
         uses: easimon/maximize-build-space@master
         with:
-          swap-size-mb: 4096            # REDUCED: 4GB Swap (Saves 4GB disk space)
+          swap-size-mb: 4096            # REDUCED: 4GB Swap
           remove-dotnet: 'true'
           remove-android: 'true'
           remove-haskell: 'true'
@@ -61,30 +61,37 @@ jobs:
           PY_SCRIPT
           python download_model.py
 
-      # --- 4. INSTALL EXECUTORCH (LEAN MODE) ---
+      # --- 4. INSTALL EXECUTORCH (FORCE MODE + RUAMEL) ---
       - name: Install ExecuTorch & Nightly
         run: |
           echo "🔹 Upgrading Pip..."
           pip install --upgrade pip --no-cache-dir
 
-          echo "🔹 Installing Core Build Tools..."
-          # We install basic build tools first
-          pip install cmake wheel numpy pandas pyyaml packaging typing-extensions transformers sentencepiece --no-cache-dir
+          echo "🔹 Installing Core Dependencies..."
+          # Added ruamel.yaml to the list
+          pip install \
+            cmake \
+            wheel \
+            numpy \
+            pandas \
+            pyyaml \
+            packaging \
+            typing-extensions \
+            transformers \
+            sentencepiece \
+            ruamel.yaml \
+            --no-cache-dir
 
-          echo "🔹 Installing Nightly PyTorch (No Cache)..."
-          # --no-cache-dir is CRITICAL here to save 2GB+ of disk space
+          echo "🔹 Installing Nightly PyTorch..."
           pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu --no-cache-dir
 
-          echo "🔹 Installing Executorch (Force Mode)..."
-          # --no-deps: Ignore test conflicts
-          # --no-cache-dir: Save disk space
+          echo "🔹 Installing Executorch (NO DEPS)..."
+          # Still using --no-deps to skip the testing bloat
           pip install --pre executorch --index-url https://download.pytorch.org/whl/nightly/cpu --no-deps --no-cache-dir
 
           echo "🔹 Cloning Source..."
           git clone --depth 1 https://github.com/pytorch/executorch.git
           cd executorch
-          
-          # Skip install_requirements.sh to prevent downgrade/bloat
 
       # --- 5. THE SURGEON PATCH ---
       - name: Apply Surgeon Patch
